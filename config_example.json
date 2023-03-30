@@ -1,0 +1,9 @@
+﻿{
+    "openai_key": "",
+    "telegram_token": "",
+    "max_history_entries": 10,
+    "users": [
+        "123456789#Testuser1",
+        "987654321#Testuser2"
+    ]
+}
