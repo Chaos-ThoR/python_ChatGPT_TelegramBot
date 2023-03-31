@@ -1,7 +1,14 @@
 ﻿{
     "openai_key": "",
     "telegram_token": "",
+    "language": "de",
     "max_history_entries": 10,
+    "models": [
+		"gpt-3.5-turbo",
+		"gpt-4",
+		"gpt-4-32k"
+	],
+	"current_model": "gpt-3.5-turbo",
     "users": [
         "123456789#Testuser1",
         "987654321#Testuser2"

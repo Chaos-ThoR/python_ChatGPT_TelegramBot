@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+chats/topics_MartinM.json
+chats/topics_NilsE.json
+chats/topics_Rudi.json
+chats/topics_Stefan.json
+chats/topics_Uta.json
+config.json
