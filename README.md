@@ -2,9 +2,8 @@
 Telegram messenger bot which uses ChatGPT.
 
 ## ToDo:
- * Better error handling
- * Changeable openai model
- * translations (de, en)
+ * Better error handling -> work in progres..
+  * translations (de, en) -> work in progres..
 
 ## Preconditions:
   * OpenAI access token [API keys](https://platform.openai.com/account/api-keys)
@@ -21,16 +20,16 @@ Telegram messenger bot which uses ChatGPT.
     - "users" -> list of allowed users as "ID#NAME"
 
 ## Useage:
+  * Create a "menu" for your bot with the following commands (BotFather -> Edit Bot -> Edit Commands)..
+    - e.G:
+
+            model - Change used model
+            topic - create, change or delete a topic
+            chat - Chat with ChatGPT
+            cancel - Cancel current operation
+
   * Use the "Menu" left of the input field..
     - "Chat" start the chat. Each message is send to the ChatGPT API. A response may 
 take a few seconds.
-    - With "Themen" you can ..
-      - start a new topic (neues Thema)
-      - resume a existing topic (vorhandenes Thema)
-      - continue without a topic (ohne Thema)
-      - show the current active topic (zeige aktuelles Thema)
-      - delete a topic (lösche Thema)
-      - (abbrechen) -> cancel the current action
       
  A "Topic" can be used to have a context for ChatGPT. It uses the last mmessages, so e.g. you can enhance an answer or give some more context or get better results.
- 
