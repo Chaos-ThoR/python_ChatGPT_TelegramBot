@@ -1,6 +1,11 @@
 # python_ChatGPT_TelegramBot
 Telegram messenger bot which uses ChatGPT.
 
+## ToDo:
+ * Better error handling
+ * Changeable openai model
+ * translations (de, en)
+
 ## Preconditions:
   * OpenAI access token [API keys](https://platform.openai.com/account/api-keys)
   * Telegram bot token (@BotFather) in the Telegram application.
