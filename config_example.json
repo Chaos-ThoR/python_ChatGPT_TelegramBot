@@ -10,7 +10,7 @@
 	],
 	"current_model": "gpt-3.5-turbo",
     "users": [
-        "123456789#Testuser1",
-        "987654321#Testuser2"
+        "123456789#Testuser1#en",
+        "987654321#Testuser2#de"
     ]
 }

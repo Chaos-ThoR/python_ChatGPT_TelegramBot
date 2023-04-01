@@ -19,7 +19,7 @@ from telegram.ext import (
 # -------------------------------------------------------------------------------------
 
 class User:
-    def __init__(self, name:  str, id: int, path: str, max_entries):
+    def __init__(self, name: str, id: int, path: str, max_entries, lang: str) -> None:
         self.name = name
         self.id = id
         self.path = path
@@ -28,8 +28,11 @@ class User:
 
     def save(self) -> None:
          with open(self.path, 'w') as outfile:
-                        json.dump(self.data, outfile)
+                        json.dump(self.data, outfile, indent=4)
     
+    def lang(self) -> str:
+        return self.data['language']
+
     def hasActiveTopic(self) -> bool:
         return not self.data['current_topic'] == ""
     
@@ -59,7 +62,6 @@ class Config:
         config = self._loadFile()
         self.openai_key = config['openai_key']
         self.telegram_token = config['telegram_token']
-        self.language = config['language']
         self.max_history_entries = config['max_history_entries']
         models = []
         for model in config['models']:
@@ -71,12 +73,12 @@ class Config:
             if user:
                 values = user.split("#")
                 path = './chats/topics_{}.json'.format(values[1])
-                user = User(values[1], values[0], path, self.max_history_entries * 2)
+                user = User(values[1], values[0], path, self.max_history_entries * 2, values[2])
                 self.users.append(user)
 
                 # setup some filesystem operations
                 if not os.path.exists(path):
-                    json_data = {"current_topic": "", "topics": []}
+                    json_data = {"language": "en", "current_topic": "", "topics": []}
                     user.data = json_data
                     with open(path, 'w') as outfile:
                         json.dump(json_data, outfile)
@@ -104,13 +106,54 @@ class Config:
         if data['current_model'] != self.current_model:
             data['current_model'] = self.current_model
             configFile = open("config.json", "w")
-            configFile.write(json.dumps(data))
+            configFile.write(json.dumps(data, indent=4))
             configFile.close()
 
 # -------------------------------------------------------------------------------------
 
 class Translations:
-    pass
+    def __init__(self) -> None:
+        self.translations_data = self._loadFile()
+        self.translations = [{}]
+        for obj in self.translations_data['tokens']:
+            for key in obj:
+                self.translations.append({key: obj[key]})
+
+    def _loadFile(self):
+        # load the configuration ..
+        try:
+            translation_data = open("translations.json", encoding='utf-8-sig')
+            config = json.load(translation_data)
+            translation_data.close()
+            return config
+        except IOError:
+            print("Could not read translations file!")
+            sys.exit()
+        except json.JSONDecodeError:
+            print("config.json: decode error!")
+            sys.exit()
+    
+    def trans(self, token: str, lang : str) -> str:
+        lang_index = 0 # 'en' as fallback
+        for avail_lang in self.translations_data['lang']:
+            if lang == avail_lang['key']:
+                lang_index = lang['val']
+        return self.translations[token][lang_index]
+    
+    def allTransAsRegex(self, token: str) -> str:
+        for obj in self.translations:
+            for key in obj:
+                if key == token:
+                    regEx_val = "^("
+                    for value in obj[key]:
+                        regEx_val += value + "|"
+                    regEx_val = regEx_val[:-1] + ")$"
+                    return regEx_val
+    
+    def langCount(self) -> int:
+        for obj in self.translations:
+            for key in obj:
+                return len(obj[key])
 
 # -------------------------------------------------------------------------------------
 
@@ -130,8 +173,11 @@ class OpenaAI_API:
         self.query[0]['content'] = text
 
     def getResponse(self) -> str:
-        completion = openai.ChatCompletion.create(model=self.config.current_model, messages=self.query)
-        return completion.choices[0].message.content
+        try:
+            completion = openai.ChatCompletion.create(model=self.config.current_model, messages=self.query)
+            return completion.choices[0].message.content
+        except openai.error.RateLimitError as ex:
+            return ex._message
     
     def getAvailableModels(self):
         models = openai.Model.list()
@@ -145,9 +191,10 @@ class OpenaAI_API:
 # -------------------------------------------------------------------------------------
 
 class ChatGPTBot:
-    def __init__(self, config : Config, openaiAPI : OpenaAI_API) -> None:
+    def __init__(self, config : Config, openaiAPI : OpenaAI_API, languages: Translations) -> None:
         self.config = config
         self.openai_api = openaiAPI
+        self.lang = languages
         self.updater = Application.builder().token(self.config.telegram_token).build()
 
         # add event handlers..
@@ -162,12 +209,12 @@ class ChatGPTBot:
             entry_points = [CommandHandler("topic", self.topic)],
             states = {
                 self.SELECTION: [
-                    MessageHandler(filters.Regex("^neues Thema$"), self.newtopic),
-                    MessageHandler(filters.Regex("^vorhandenes Thema$"), self.existingtopic),
-                    MessageHandler(filters.Regex("^ohne Thema$"), self.cleartopic),
-                    MessageHandler(filters.Regex("^zeige aktuelles Thema$"), self.currenttopic),
-                    MessageHandler(filters.Regex("^lösche Thema$"), self.deletetopic),
-                    MessageHandler(filters.Regex("^abbrechen$"), self.cancel)
+                    MessageHandler(filters.Regex(self.lang.allTransAsRegex("newTopic")), self.newtopic),
+                    MessageHandler(filters.Regex(self.lang.allTransAsRegex("existingTopic")), self.existingtopic),
+                    MessageHandler(filters.Regex(self.lang.allTransAsRegex("withoutTopic")), self.cleartopic),
+                    MessageHandler(filters.Regex(self.lang.allTransAsRegex("showCurrentTopic")), self.currenttopic),
+                    MessageHandler(filters.Regex(self.lang.allTransAsRegex("deleteTopic")), self.deletetopic),
+                    MessageHandler(filters.Regex(self.lang.allTransAsRegex("cancel")), self.cancel)
                 ],
                 self.TOPICSELECTION: [
                     MessageHandler(filters.Regex(".*"), self.setselectedtopic)
@@ -186,8 +233,8 @@ class ChatGPTBot:
             entry_points = [CommandHandler("model", self.model)],
             states = {
                 self.MODELSELECT: [
-                    MessageHandler(filters.Regex("^Modell wählen$"), self.setmodel),
-                    MessageHandler(filters.Regex("^zeige aktuelles Modell$"), self.showmodel)
+                    MessageHandler(filters.Regex(self.lang.allTransAsRegex("chooseModel")), self.setmodel),
+                    MessageHandler(filters.Regex(self.lang.allTransAsRegex("showCurrentModel")), self.showmodel)
                 ],
                 self.MODELSELECTED: [
                     MessageHandler(filters.Regex(".*"), self.setnewmodel)
@@ -206,8 +253,10 @@ class ChatGPTBot:
         self.updater.add_handler(chat_handler)
         
     async def topic(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        if self._isUser(update):
+        user = self.userById(update)
+        if user:
             reply_keyboard = []
+            self.lang.trans('newTopic', user.lang)
             reply_keyboard.append(["neues Thema"])
             reply_keyboard.append(["vorhandenes Thema"])
             reply_keyboard.append(["ohne Thema"])
@@ -445,11 +494,13 @@ class ChatGPTBot:
             userId = str(update.message.from_user.id)
             if user.id == userId:
                 return user
+        return None
 
 # -------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
     config = Config()
+    languages = Translations()
     openai_api = OpenaAI_API(config)
-    chatGPT_bot = ChatGPTBot(config, openai_api)
+    chatGPT_bot = ChatGPTBot(config, openai_api, languages)
     chatGPT_bot.run()
