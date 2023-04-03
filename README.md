@@ -17,7 +17,7 @@ Telegram messenger bot which uses ChatGPT.
   * Edit the "config_example.json" and save it as "config.json".
     - "opeanai_key" -> the opeanai secret key
     - "telegram_token" -> the telegram bot token
-    - "users" -> list of allowed users as "ID#NAME"
+    - "users" -> list of allowed users as "ID#NAME'LAGUAGE" (LANGUAGE -> "en, "de")
 
 ## Useage:
   * Create a "menu" for your bot with the following commands (BotFather -> Edit Bot -> Edit Commands)..
