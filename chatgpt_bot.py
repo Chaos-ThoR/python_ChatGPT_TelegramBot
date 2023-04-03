@@ -27,7 +27,7 @@ class User:
         self.data = None
 
     def save(self) -> None:
-         with open(self.path, 'w') as outfile:
+        with open(self.path, 'w') as outfile:
                         json.dump(self.data, outfile, indent=4)
     
     def lang(self) -> str:
@@ -178,6 +178,8 @@ class OpenaAI_API:
             return completion.choices[0].message.content
         except openai.error.RateLimitError as ex:
             return ex._message
+        finally:
+            self.query[0]['content'] = ""
     
     def getAvailableModels(self):
         models = openai.Model.list()
@@ -209,12 +211,12 @@ class ChatGPTBot:
             entry_points = [CommandHandler("topic", self.topic)],
             states = {
                 self.SELECTION: [
-                    MessageHandler(filters.Regex(self.lang.allTransAsRegex("newTopic")), self.newtopic),
-                    MessageHandler(filters.Regex(self.lang.allTransAsRegex("existingTopic")), self.existingtopic),
-                    MessageHandler(filters.Regex(self.lang.allTransAsRegex("withoutTopic")), self.cleartopic),
-                    MessageHandler(filters.Regex(self.lang.allTransAsRegex("showCurrentTopic")), self.currenttopic),
-                    MessageHandler(filters.Regex(self.lang.allTransAsRegex("deleteTopic")), self.deletetopic),
-                    MessageHandler(filters.Regex(self.lang.allTransAsRegex("cancel")), self.cancel)
+                    MessageHandler(filters.Regex("^neues Thema$"), self.newtopic),
+                    MessageHandler(filters.Regex("^vorhandenes Thema$"), self.existingtopic),
+                    MessageHandler(filters.Regex("^ohne Thema$"), self.cleartopic),
+                    MessageHandler(filters.Regex("^zeige aktuelles Thema$"), self.currenttopic),
+                    MessageHandler(filters.Regex("^lösche Thema$"), self.deletetopic),
+                    MessageHandler(filters.Regex("^abbrechen$"), self.cancel)
                 ],
                 self.TOPICSELECTION: [
                     MessageHandler(filters.Regex(".*"), self.setselectedtopic)
@@ -233,8 +235,8 @@ class ChatGPTBot:
             entry_points = [CommandHandler("model", self.model)],
             states = {
                 self.MODELSELECT: [
-                    MessageHandler(filters.Regex(self.lang.allTransAsRegex("chooseModel")), self.setmodel),
-                    MessageHandler(filters.Regex(self.lang.allTransAsRegex("showCurrentModel")), self.showmodel)
+                    MessageHandler(filters.Regex("^Modell wählen$"), self.setmodel),
+                    MessageHandler(filters.Regex("^zeige aktuelles Modell$"), self.showmodel)
                 ],
                 self.MODELSELECTED: [
                     MessageHandler(filters.Regex(".*"), self.setnewmodel)
@@ -256,7 +258,6 @@ class ChatGPTBot:
         user = self.userById(update)
         if user:
             reply_keyboard = []
-            self.lang.trans('newTopic', user.lang)
             reply_keyboard.append(["neues Thema"])
             reply_keyboard.append(["vorhandenes Thema"])
             reply_keyboard.append(["ohne Thema"])
@@ -444,7 +445,8 @@ class ChatGPTBot:
 
     async def chat_query(self, update, context):
         try:
-            if self._isUser(update):
+            user = self.userById(update)
+            if user:
                 # filter commands
                 if update.message.text == "/cancel":
                     await update.message.reply_text("OK")
