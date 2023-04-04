@@ -206,6 +206,7 @@ class ChatGPTBot:
         self.updater.add_handler(CommandHandler('start', self.start))
 
         # conversations
+        # topic conversation
         self.SELECTION, self.TOPICSELECTION, self.TOPICSELECTION_DELETE, self.NEWTOPIC = range(4)
         topic_handler = ConversationHandler(
             entry_points = [CommandHandler("topic", self.topic)],
@@ -230,6 +231,7 @@ class ChatGPTBot:
             }, fallbacks=[CommandHandler("cancel", self.cancel)])
         self.updater.add_handler(topic_handler)
 
+        # model conversation
         self.MODELSELECT, self.MODELSELECTED = range(2)
         model_handler = ConversationHandler(
             entry_points = [CommandHandler("model", self.model)],
@@ -244,6 +246,7 @@ class ChatGPTBot:
             }, fallbacks=[CommandHandler("cancel", self.cancel)])
         self.updater.add_handler(model_handler)
 
+        # chat conversation
         self.CHAT = range(1)
         chat_handler = ConversationHandler(
             entry_points = [CommandHandler('chat', self.chat_query)],
@@ -253,6 +256,17 @@ class ChatGPTBot:
                 ]
             }, fallbacks=[CommandHandler("cancel", self.cancel)])
         self.updater.add_handler(chat_handler)
+
+        # image creation conversation
+        self.CREATEIMAGE = range(1)
+        image_handler = ConversationHandler(
+            entry_points = [CommandHandler('image', self.image)],
+            states = {
+                self.CREATEIMAGE: [
+                    MessageHandler(filters.Regex(".*"), self.create_image)
+                ]
+            }, fallbacks=[CommandHandler("cancel", self.cancel)])
+        self.updater.add_handler(image_handler)
         
     async def topic(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         user = self.userById(update)
@@ -423,7 +437,7 @@ class ChatGPTBot:
             return self.cancel(update, context)
         return ConversationHandler.END
 
-    async def start(self, update, context):
+    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             if self._isUser(update):
                 await update.message.reply_text("Wilkommen beim ChatGPT Telegram Bot!")
@@ -431,9 +445,9 @@ class ChatGPTBot:
                 await update.message.reply_text("You are not in the valid users list!")
         except error.NetworkError:
             self.updater = Application.builder().token(self.config.telegram_token).build()
-            return self.start(update, context)
+            self.start(update, context)
 
-    async def help(self, update, context):
+    async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             if self._isUser(update):
                 await update.message.reply_text("Wilkommen beim ChatGPT Telegram Bot!")
@@ -441,9 +455,9 @@ class ChatGPTBot:
                 await update.message.reply_text("You are not in the valid users list!")
         except error.NetworkError:
             self.updater = Application.builder().token(self.config.telegram_token).build()
-            return self.help(update, context)
+            self.help(update, context)
 
-    async def chat_query(self, update, context):
+    async def chat_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         try:
             user = self.userById(update)
             if user:
@@ -477,7 +491,23 @@ class ChatGPTBot:
                 await update.message.reply_text("You are not in the valid users list!")
         except error.NetworkError:
             self.updater = Application.builder().token(self.config.telegram_token).build()
-            return self.chat_query(update, context)
+            self.chat_query(update, context)
+        return ConversationHandler.END
+    
+    async def image(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        user = self.userById(update)
+        if user:
+            await update.message.reply_text("Beschreibe das Bild..")
+            return self.CREATEIMAGE
+        else:
+            await update.message.reply_text("You are not in the valid users list!")
+            return ConversationHandler.END
+
+    async def create_image(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        user = self.userById(update)
+        generation_response = openai.Image.create(prompt=update.message.text, n=1, size="1024x1024", response_format="url")
+        generated_image_url = generation_response["data"][0]["url"]  # extract image URL from response
+        await self.updater.bot.send_photo(chat_id=user.id, photo=generated_image_url)
         return ConversationHandler.END
 
     def run(self) -> None:
