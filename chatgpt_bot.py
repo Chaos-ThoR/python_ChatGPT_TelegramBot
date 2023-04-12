@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 # pip3 install openai python-telegram-bot
@@ -181,7 +182,7 @@ class OpenaAI_API:
         finally:
             self.query[0]['content'] = ""
     
-    def getAvailableModels(self):
+    def getAvailableModels(self) -> set:
         models = openai.Model.list()
         models_list = []
         for model in models['data']:
@@ -189,6 +190,23 @@ class OpenaAI_API:
         models_set = set(models_list)
         available_models = models_set.intersection(config.models)
         return available_models
+    
+    def getImage(self) -> str:
+        try:
+            generation_response = openai.Image.create(prompt=self.query[0]['content'], n=1, size="1024x1024", response_format="url")
+            return generation_response["data"][0]["url"] # extract image URL from response
+        except openai.error.RateLimitError as ex:
+            return ex._message
+        finally:
+            self.query[0]['content'] = ""
+
+    def getTranscription(self, audio_file) -> str:
+        try:
+            transcription = openai.Audio.transcribe(audio_file)
+            pass
+        except openai.error.RateLimitError as ex:
+            return ex._message
+        return ""
 
 # -------------------------------------------------------------------------------------
 
@@ -505,8 +523,8 @@ class ChatGPTBot:
 
     async def create_image(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         user = self.userById(update)
-        generation_response = openai.Image.create(prompt=update.message.text, n=1, size="1024x1024", response_format="url")
-        generated_image_url = generation_response["data"][0]["url"]  # extract image URL from response
+        self.openai_api.setQueryText(update.message.text)
+        generated_image_url = self.openai_api.getImage()
         await self.updater.bot.send_photo(chat_id=user.id, photo=generated_image_url)
         return ConversationHandler.END
 
